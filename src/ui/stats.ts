@@ -351,7 +351,7 @@ function layoutBlock(doc: StatsDoc, layout: Layout): HTMLElement {
 	return h("div", {}, ...parts.filter(Boolean));
 }
 
-export async function openStats(root: HTMLElement, goLibrary: () => void): Promise<() => void> {
+export async function openStats(root: HTMLElement, goLibrary: () => void, startDrill: (layout: Layout) => void): Promise<() => void> {
 	for (const d of disposers) d();
 	disposers = [];
 	const [doc, sessions] = await Promise.all([getStats(), getSessions()]);
@@ -404,6 +404,8 @@ export async function openStats(root: HTMLElement, goLibrary: () => void): Promi
 	const ruN = totals(doc.layouts.ru).n;
 	const enN = totals(doc.layouts.en).n;
 	let layout: Layout = enN > ruN ? "en" : "ru";
+	const drillButton = () =>
+		h("div.st-drill", {}, h("button.primary", { type: "button", onclick: () => startDrill(layout) }, "Поработать над недостатками"), h("small", {}, "Урок из слабых букв этой раскладки"));
 	const layoutHost = h("div");
 	const switcher = h("div.segmented.layout-switch", { role: "radiogroup", "aria-label": "Раскладка" });
 	for (const [l, t] of [["ru", `Русская · ${ruN.toLocaleString("ru")}`], ["en", `Английская · ${enN.toLocaleString("ru")}`]] as [Layout, string][]) {
@@ -412,13 +414,13 @@ export async function openStats(root: HTMLElement, goLibrary: () => void): Promi
 			layout = l;
 			for (const x of switcher.children) x.setAttribute("aria-checked", "false");
 			b.setAttribute("aria-checked", "true");
-			layoutHost.replaceChildren(layoutBlock(doc, layout));
+			layoutHost.replaceChildren(layoutBlock(doc, layout), drillButton());
 		});
 		switcher.append(b);
 	}
 	if (ruN + enN > 0) {
 		body.append(h("div.layout-head", {}, h("span.st-note", {}, "Раскладка (число верных нажатий)"), switcher), layoutHost);
-		layoutHost.replaceChildren(layoutBlock(doc, layout));
+		layoutHost.replaceChildren(layoutBlock(doc, layout), drillButton());
 	}
 
 	const since = new Date(doc.since).toLocaleDateString("ru");

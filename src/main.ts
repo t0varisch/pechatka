@@ -1,5 +1,7 @@
 import "./styles.css";
 import { registerSW } from "virtual:pwa-register";
+import type { Layout } from "./core/layouts";
+import { prepareDrill } from "./drill-source";
 import { applyTheme, loadSettings, saveSettings, watchSystemTheme } from "./settings";
 import { askPersist } from "./store";
 import { toast } from "./ui/dom";
@@ -26,20 +28,30 @@ async function route(): Promise<void> {
 	const seq = ++routeSeq;
 	cleanup?.();
 	cleanup = null;
-	const m = location.hash.match(/^#\/type\/(.+)$/);
+	const hash = location.hash;
+	const book = hash.match(/^#\/type\/(.+)$/);
+	const drill = hash.match(/^#\/drill\/(ru|en)/);
+	const goLibrary = () => (location.hash = "#/");
+	const openStatsPage = () => (location.hash = "#/stats");
+	// Новый урок — новый адрес, чтобы сработала смена страницы
+	const startDrill = (layout: Layout) => (location.hash = `#/drill/${layout}/${Date.now()}`);
+	const typerCtx = { settings, saveSettings: persist, goLibrary, openStats: openStatsPage, nextLesson: startDrill };
 	try {
-		const goLibrary = () => (location.hash = "#/");
-		const done = location.hash === "#/stats"
-			? await openStats(root, goLibrary)
-			: m
-			? await openTyper(root, decodeURIComponent(m[1]), { settings, saveSettings: persist, goLibrary: () => (location.hash = "#/") })
-			: await openLibrary(root, {
-					settings,
-					saveSettings: persist,
-					onSettingsChange: () => applyTheme(settings),
-					openBook: (id) => (location.hash = `#/type/${encodeURIComponent(id)}`),
-					openStats: () => (location.hash = "#/stats"),
-				});
+		const done =
+			hash === "#/stats"
+				? await openStats(root, goLibrary, startDrill)
+				: drill
+					? await openTyper(root, "drill", typerCtx, await prepareDrill(drill[1] as Layout))
+					: book
+						? await openTyper(root, decodeURIComponent(book[1]), typerCtx)
+						: await openLibrary(root, {
+								settings,
+								saveSettings: persist,
+								onSettingsChange: () => applyTheme(settings),
+								openBook: (id) => (location.hash = `#/type/${encodeURIComponent(id)}`),
+								openStats: openStatsPage,
+								startDrill,
+							});
 		if (seq === routeSeq) cleanup = done;
 		else done();
 	} catch (e) {

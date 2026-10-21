@@ -1,4 +1,6 @@
+import type { Layout } from "../core/layouts";
 import { buildTypingText } from "../core/typing";
+import { drillPreview } from "../drill-source";
 import type { Settings } from "../settings";
 import { addBook, askPersist, type BookMeta, deleteBook, listBooks } from "../store";
 import type { ParsedBook } from "../types";
@@ -12,6 +14,7 @@ export interface LibraryCtx {
 	onSettingsChange(): void;
 	openBook(id: string): void;
 	openStats(): void;
+	startDrill(layout: Layout): void;
 }
 
 /** Скорость для оценки времени, пока своей скорости по книге ещё нет, зн/мин. */
@@ -68,6 +71,17 @@ export async function openLibrary(root: HTMLElement, ctx: LibraryCtx): Promise<(
 	const list = h("div.books");
 	const busy = h("div.busy", { "aria-live": "polite" });
 	const app = inAppBrowser();
+	// «Работа над ошибками»: урок из слабых букв, по раскладке
+	const drillRu = h("button.primary", { type: "button", onclick: () => ctx.startDrill("ru") }, "Русская");
+	const drillEn = h("button.secondary", { type: "button", onclick: () => ctx.startDrill("en") }, "Английская");
+	const drillNote = h("small", {}, "Короткий урок из твоих слабых букв и сочетаний — 1–2 минуты");
+	const drillCard = h("div.drill-card", {}, h("div", {}, h("strong", {}, "Работа над ошибками"), drillNote), h("div.drill-actions", {}, drillRu, drillEn));
+	Promise.all([drillPreview("ru"), drillPreview("en")])
+		.then(([ru, en]) => {
+			drillRu.textContent = ru.length ? `Русская · ${ru.join(" ")}` : "Русская";
+			drillEn.textContent = en.length ? `Английская · ${en.join(" ")}` : "Английская · разгон";
+		})
+		.catch(() => {});
 
 	const view = h(
 		"div.library",
@@ -90,6 +104,7 @@ export async function openLibrary(root: HTMLElement, ctx: LibraryCtx): Promise<(
 			h("button.secondary", { type: "button", onclick: () => pasteText() }, icon("text", 20), "Вставить текст"),
 		),
 		h("p.formats", {}, "FB2, EPUB, TXT, PDF. Книга остаётся на этом устройстве."),
+		drillCard,
 		app ? inAppBanner(app) : installHint(),
 		busy,
 		list,

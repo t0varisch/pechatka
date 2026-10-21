@@ -8,10 +8,11 @@ import {
 	remainingRequired,
 	TypingStats,
 } from "../core/typing";
-import { KeystrokeCollector } from "../core/keystats";
-import { layoutOf } from "../core/layouts";
+import { DRILL_TITLE, type DrillPlan } from "../core/drill";
+import { byChar, errRate, KeystrokeCollector } from "../core/keystats";
+import { type Layout, layoutOf } from "../core/layouts";
 import type { Settings } from "../settings";
-import { addStats, type BookMeta, getBook, newId, saveSession, updateBook } from "../store";
+import { addStats, type BookMeta, getBook, getSessions, newId, saveSession, updateBook } from "../store";
 import { formatDuration, h, iconButton, openSheet, toast } from "./dom";
 import { openSettings } from "./settings-sheet";
 
@@ -19,6 +20,8 @@ export interface AppCtx {
 	settings: Settings;
 	saveSettings(): void;
 	goLibrary(): void;
+	openStats(): void;
+	nextLesson(layout: Layout): void;
 }
 
 interface ChapterMark {
@@ -39,8 +42,32 @@ function escapeHtml(ch: string): string {
 	return ch;
 }
 
-export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Promise<() => void> {
-	const book = await getBook(id);
+/** Урок «Работа над ошибками»: текст урока и доля ошибок по буквам урока до него. */
+export interface DrillLesson extends DrillPlan {
+	before: Record<string, number>;
+}
+
+const LAYOUT_NAMES: Record<Layout, string> = { ru: "русская раскладка", en: "английская раскладка" };
+
+export async function openTyper(root: HTMLElement, id: string, app: AppCtx, drill?: DrillLesson): Promise<() => void> {
+	const book = drill
+		? {
+				meta: {
+					id: "drill",
+					title: `${DRILL_TITLE} · ${LAYOUT_NAMES[drill.layout]}`,
+					author: "",
+					format: "text",
+					addedAt: 0,
+					openedAt: 0,
+					charCount: drill.text.length,
+					position: 0,
+					stats: { correct: 0, errors: 0, activeMs: 0 },
+					toc: [],
+					bookmarks: [],
+				} as BookMeta,
+				paragraphs: [drill.text],
+			}
+		: await getBook(id);
 	if (!book) {
 		toast("Книга не найдена");
 		app.goLibrary();
@@ -71,6 +98,15 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 	let firstLetter: ReturnType<typeof layoutOf> = null;
 	for (let i = pos; i < Math.min(len, pos + 400) && !firstLetter; i++) firstLetter = layoutOf(text[i]);
 	const collector = new KeystrokeCollector(firstLetter ?? "ru");
+	// Отдельный счёт на весь урок — для итога (основной сборщик сбрасывается при каждой записи)
+	const lesson = drill ? new KeystrokeCollector(drill.layout) : null;
+	let lessonDone = false;
+	let lessonDoneAt = 0;
+	const focusText = drill
+		? drill.starter
+			? "Разгон: частые слова, копим статистику"
+			: `Упор: ${drill.focus.join(" · ")}${drill.pairs.length ? ` · сочетания ${drill.pairs.join(", ")}` : ""}`
+		: "";
 
 	// ---- разметка
 	const bar = h("div.progress-fill");
@@ -88,7 +124,7 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 		{},
 		h("div.stat", {}, speedOut, h("small", {}, "зн/мин")),
 		h("div.stat", {}, accOut, h("small", {}, "точность")),
-		h("div.stat", {}, pctOut, h("small", {}, "книги")),
+		h("div.stat", {}, pctOut, h("small", {}, drill ? "урока" : "книги")),
 	);
 	// Невидимое поле ввода: через него приходят буквы и с компьютера, и с экранной клавиатуры телефона
 	const input = h("textarea.ghost", {
@@ -111,8 +147,8 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 			{},
 			iconButton("back", "К библиотеке", () => app.goLibrary()),
 			h("div.where", {}, chapterLine, titleLine),
-			iconButton("toc", "Оглавление и закладки", () => openNav()),
-			bookmarkBtn,
+			drill ? null : iconButton("toc", "Оглавление и закладки", () => openNav()),
+			drill ? null : bookmarkBtn,
 			iconButton("gear", "Настройки", () => openTyperSettings()),
 		),
 		stage,
@@ -200,6 +236,7 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 	}
 
 	function refreshHint(): void {
+		if (lessonDone) return setHint("");
 		if (pos >= len) return setHint("Книга напечатана целиком");
 		if (document.activeElement !== input) return setHint(matchMedia("(pointer: coarse)").matches ? "Нажми на строку, чтобы печатать" : "Нажми любую клавишу, чтобы продолжить");
 		setHint(session.correct === 0 ? "Печатай — время пойдёт с первой буквы" : "");
@@ -215,6 +252,7 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 		const now = performance.now();
 		const ok = matches(expected, ch, opts);
 		collector.press(expected, ch, ok, now);
+		lesson?.press(expected, ch, ok, now);
 		if (ok) {
 			session.hit(true, now);
 			const from = pos;
@@ -225,8 +263,11 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 			if (hintLine.textContent) refreshHint();
 			if (pos >= len) {
 				save();
-				refreshHint();
-				toast("Книга напечатана целиком");
+				if (drill) showLessonResult();
+				else {
+					refreshHint();
+					toast("Книга напечатана целиком");
+				}
 			}
 		} else {
 			session.hit(false, now);
@@ -313,10 +354,14 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 		const avg = bookCpm();
 		const speed = cpm || avg;
 		const parts: string[] = [];
-		if (avg) parts.push(`в среднем по книге ${avg} зн/мин`);
+		if (avg && !drill) parts.push(`в среднем по книге ${avg} зн/мин`);
 		if (speed) parts.push(`осталось ≈ ${formatDuration((remaining / speed) * 60000)}`);
 		else parts.push(`осталось ${remaining.toLocaleString("ru")} знаков`);
 		metaLine.textContent = parts.join(" · ");
+		if (drill) {
+			chapterLine.textContent = focusText;
+			return;
+		}
 		const ch = currentChapter();
 		chapterLine.textContent = ch ? ch.title : "";
 		view.classList.toggle("no-chapter", !ch);
@@ -331,7 +376,7 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 		return found;
 	}
 
-	function save(): void {
+	function save(): Promise<unknown> {
 		lastSaved = Date.now();
 		meta.position = pos;
 		meta.stats = {
@@ -339,11 +384,69 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 			errors: base.errors + session.errors,
 			activeMs: base.activeMs + session.activeMs,
 		};
-		updateBook(meta.id, { position: pos, stats: meta.stats, openedAt: Date.now() }).catch(() => {});
-		if (collector.dirty) addStats(collector.take()).catch(() => {});
+		const jobs: Promise<unknown>[] = [];
+		if (!drill) jobs.push(updateBook(meta.id, { position: pos, stats: meta.stats, openedAt: Date.now() }));
+		if (collector.dirty) jobs.push(addStats(collector.take()));
 		if (session.correct >= 20) {
-			saveSession({ id: sessionStart, ms: session.activeMs, correct: session.correct, errors: session.errors, book: meta.title }).catch(() => {});
+			jobs.push(saveSession({ id: sessionStart, ms: session.activeMs, correct: session.correct, errors: session.errors, book: drill ? DRILL_TITLE : meta.title }));
 		}
+		return Promise.all(jobs).catch(() => {});
+	}
+
+	// ---- итог урока
+	async function showLessonResult(): Promise<void> {
+		if (!drill || !lesson) return;
+		lessonDone = true;
+		lessonDoneAt = performance.now();
+		const L = lesson.take().layouts[drill.layout];
+		const chars = byChar(L);
+		const pctText = (x: number) => `${(x * 100).toFixed(0)}%`;
+		const rows = drill.focus.map((f) => {
+			const a = chars.get(f);
+			const now = a && a.n + a.err ? errRate(a) : 0;
+			const was = drill.before[f];
+			const trend = was === undefined ? "" : now < was ? " — лучше" : now > was ? " — хуже" : "";
+			return h("li", {}, `«${f}»: ошибок ${a ? a.err : 0} из ${a ? a.n + a.err : 0} (${pctText(now)})${was !== undefined ? `, раньше ${pctText(was)}` : ""}${trend}`);
+		});
+		const today = new Date().toDateString();
+		const sessions = await getSessions().catch(() => []);
+		const todayMs =
+			sessions.filter((x) => x.book === DRILL_TITLE && new Date(x.id).toDateString() === today && x.id !== sessionStart).reduce((acc, x) => acc + x.ms, 0) +
+			session.activeMs;
+		const acc = session.accuracy;
+		const tip =
+			acc < 96
+				? "Сбавь темп: ошибки тормозят сильнее всего. Цель — 97–98% точности, скорость придёт следом."
+				: acc >= 98.5
+					? "Точность отличная — следующий урок можно чуть быстрее."
+					: "Хороший темп. Держи точность не ниже 97%.";
+		const next = h("button.primary", { type: "button" }, "Следующий урок");
+		next.addEventListener("click", () => goNext());
+		const card = h(
+			"div.lesson-result",
+			{ role: "status" },
+			h("h2", {}, "Урок готов"),
+			h("p.lesson-big", {}, `${session.cpm} зн/мин · ${acc.toFixed(1).replace(".", ",")}%`),
+			rows.length ? h("ul", {}, ...rows) : null,
+			h("p", {}, `Сегодня на тренировке: ${formatDuration(todayMs)}. Хватит 10–15 минут в день.`),
+			h("p.lesson-tip", {}, tip),
+			h("div.lesson-actions", {}, next, h("button.secondary", { type: "button", onclick: () => app.openStats() }, "Статистика")),
+			h("small", {}, "Enter — следующий урок"),
+		);
+		tapeWrap.replaceWith(card);
+		hintLine.textContent = "";
+		// Цифры урока уже в карточке
+		stats.hidden = true;
+		metaLine.hidden = true;
+		next.focus({ preventScroll: true });
+	}
+
+	let going = false;
+	async function goNext(): Promise<void> {
+		if (!drill || going) return;
+		going = true;
+		await save();
+		app.nextLesson(drill.layout);
 	}
 
 	// ---- переходы, оглавление, закладки
@@ -460,6 +563,12 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 	// ---- клавиши поверх: начать печатать можно, не попадая в поле
 	const onKey = (e: KeyboardEvent) => {
 		if (document.querySelector(".sheet-backdrop")) return;
+		if (lessonDone) {
+			// Только Enter и не сразу: пробел после последнего слова не должен пролистать итог
+			if (e.key === "Enter" && performance.now() - lessonDoneAt > 1000) goNext();
+			if (e.key === "Enter" || e.key === " ") e.preventDefault();
+			return;
+		}
 		if (e.key === "Escape") return app.goLibrary();
 		if (e.ctrlKey || e.metaKey || e.altKey) return;
 		if (document.activeElement !== input && (e.key.length === 1 || e.key === "Enter")) focusInput();

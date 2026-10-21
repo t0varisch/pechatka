@@ -1218,3 +1218,87 @@ input[type="checkbox"][role="switch"]:checked::before {
 		gap: 12px;
 	}
 }
+
+/* ---------- работа над ошибками ---------- */
+.drill-card {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 14px;
+	padding: 14px;
+	border-radius: 16px;
+	border: 1px solid var(--line);
+}
+.drill-card strong {
+	display: block;
+	font-size: 16px;
+}
+.drill-card small {
+	color: var(--muted);
+	font-size: 13px;
+}
+.drill-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	flex: 1 1 260px;
+}
+.drill-actions button {
+	min-height: 44px;
+	flex: 1 1 120px;
+}
+.st-drill {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 12px;
+	margin-top: 28px;
+}
+.st-drill .primary {
+	flex: none;
+}
+.st-drill small {
+	color: var(--muted);
+}
+.lesson-result {
+	width: min(520px, calc(100% - 32px));
+	margin: 0 auto;
+	padding: 18px 20px;
+	border-radius: 18px;
+	background: var(--surface);
+	cursor: default;
+}
+.lesson-result h2 {
+	margin: 0 0 4px;
+	font-size: 20px;
+}
+.lesson-big {
+	margin: 0 0 12px;
+	font-size: 26px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+.lesson-result ul {
+	margin: 0 0 12px;
+	padding-left: 20px;
+	line-height: 1.5;
+}
+.lesson-result p {
+	margin: 0 0 10px;
+	line-height: 1.45;
+}
+.lesson-tip {
+	color: var(--accent);
+}
+.lesson-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 14px 0 8px;
+}
+.lesson-result > small {
+	color: var(--muted);
+	font-size: 13px;
+}
