@@ -1302,3 +1302,30 @@ input[type="checkbox"][role="switch"]:checked::before {
 	color: var(--muted);
 	font-size: 13px;
 }
+
+/* Вкладка «Текст»: выбрать слово, с которого печатать */
+.text-body p {
+	margin: 0 0 0.8em;
+	font-size: 16px;
+	line-height: 1.6;
+}
+.text-body span {
+	cursor: pointer;
+	border-radius: 4px;
+}
+.text-body span:hover {
+	color: var(--accent);
+}
+.text-body span.done {
+	color: var(--muted);
+}
+.text-body span.here {
+	background: var(--hl);
+	box-shadow: 0 0 0 2px var(--hl);
+	color: var(--fg);
+}
+.text-pane .more {
+	width: 100%;
+	min-height: 40px;
+	margin: 4px 0 12px;
+}

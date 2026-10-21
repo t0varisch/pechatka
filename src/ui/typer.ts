@@ -519,18 +519,95 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx, dril
 		};
 		renderMarks();
 
-		const tabToc = h("button", { type: "button", role: "tab", "aria-selected": "true" }, "Оглавление");
-		const tabMarks = h("button", { type: "button", role: "tab", "aria-selected": "false" }, `Закладки${meta.bookmarks.length ? ` · ${meta.bookmarks.length}` : ""}`);
-		marks.hidden = true;
-		const select = (toc: boolean) => {
-			tabToc.setAttribute("aria-selected", String(toc));
-			tabMarks.setAttribute("aria-selected", String(!toc));
-			tocList.hidden = !toc;
-			marks.hidden = toc;
+		// Текст главы обычными абзацами: нажал на слово — печать начнётся с него
+		const textPane = h("div.text-pane");
+		const WINDOW = 12000;
+		let from = 0;
+		let to = 0;
+		const chapterRange = (): [number, number] => {
+			const ch = currentChapter();
+			if (!ch) return [0, len];
+			const i = sortedChapters.indexOf(ch);
+			return [ch.pos, i + 1 < sortedChapters.length ? sortedChapters[i + 1].pos : len];
 		};
-		tabToc.addEventListener("click", () => select(true));
-		tabMarks.addEventListener("click", () => select(false));
-		const body = h("div.nav", {}, h("label.row.range-row", {}, h("span.row-label", {}, "Позиция", posOut), slider), h("div.tabs", { role: "tablist" }, tabToc, tabMarks), h("div.panes", {}, tocList, marks));
+		const paraStart = (i: number) => {
+			const k = text.lastIndexOf("\n", i - 1);
+			return i - k > 600 ? i : k + 1;
+		};
+		const paraEnd = (i: number) => {
+			const k = text.indexOf("\n", i);
+			return k < 0 || k - i > 600 ? Math.min(len, i) : k;
+		};
+		const renderText = () => {
+			let html = "";
+			let i = from;
+			while (i < to) {
+				const nl = text.indexOf("\n", i);
+				const end = nl < 0 || nl > to ? to : nl;
+				html += "<p>";
+				for (const m of text.slice(i, end).matchAll(/\S+/g)) {
+					const start = i + (m.index ?? 0);
+					const stop = start + m[0].length;
+					const cls = stop <= pos ? "done" : start <= pos && pos < stop ? "here" : "";
+					html += `<span data-i="${start}"${cls ? ` class="${cls}"` : ""}>${Array.from(m[0]).map(escapeHtml).join("")}</span> `;
+				}
+				html += "</p>";
+				i = end + 1;
+			}
+			const earlier = from > 0 ? h("button.secondary.more", { type: "button" }, "Показать раньше") : null;
+			const later = to < len ? h("button.secondary.more", { type: "button" }, "Показать дальше") : null;
+			earlier?.addEventListener("click", () => {
+				from = paraStart(Math.max(0, from - WINDOW / 2));
+				renderText();
+			});
+			later?.addEventListener("click", () => {
+				to = paraEnd(Math.min(len, to + WINDOW / 2));
+				renderText();
+			});
+			const body = h("div.text-body", { html });
+			textPane.replaceChildren(h("p.st-note", {}, "Нажми на слово — печать начнётся с него."), earlier ?? "", body, later ?? "");
+		};
+		const openText = () => {
+			const [cs, ce] = chapterRange();
+			from = ce - cs > WINDOW ? Math.max(cs, pos - WINDOW / 3) : cs;
+			to = Math.min(ce - cs > WINDOW ? from + WINDOW : ce, len);
+			from = paraStart(from);
+			to = paraEnd(to);
+			renderText();
+			requestAnimationFrame(() => textPane.querySelector(".here")?.scrollIntoView({ block: "center" }));
+		};
+		textPane.addEventListener("click", (e) => {
+			const w = (e.target as HTMLElement).closest("span[data-i]");
+			if (!w) return;
+			seek(Number(w.getAttribute("data-i")));
+			close();
+		});
+
+		const tabToc = h("button", { type: "button", role: "tab", "aria-selected": "true" }, "Оглавление");
+		const tabText = h("button", { type: "button", role: "tab", "aria-selected": "false" }, "Текст");
+		const tabMarks = h("button", { type: "button", role: "tab", "aria-selected": "false" }, `Закладки${meta.bookmarks.length ? ` · ${meta.bookmarks.length}` : ""}`);
+		const panes: [HTMLElement, HTMLElement][] = [
+			[tabToc, tocList],
+			[tabText, textPane],
+			[tabMarks, marks],
+		];
+		const select = (tab: HTMLElement) => {
+			for (const [t, pane] of panes) {
+				t.setAttribute("aria-selected", String(t === tab));
+				pane.hidden = t !== tab;
+			}
+			if (tab === tabText) openText();
+		};
+		for (const [t] of panes) t.addEventListener("click", () => select(t));
+		textPane.hidden = true;
+		marks.hidden = true;
+		const body = h(
+			"div.nav",
+			{},
+			h("label.row.range-row", {}, h("span.row-label", {}, "Позиция", posOut), slider),
+			h("div.tabs", { role: "tablist" }, tabToc, tabText, tabMarks),
+			h("div.panes", {}, tocList, textPane, marks),
+		);
 		const close = openSheet("Навигация", body, () => focusInput());
 		requestAnimationFrame(() => tocList.querySelector(".current")?.scrollIntoView({ block: "center" }));
 	}
