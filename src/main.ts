@@ -4,6 +4,7 @@ import { applyTheme, loadSettings, saveSettings, watchSystemTheme } from "./sett
 import { askPersist } from "./store";
 import { toast } from "./ui/dom";
 import { openLibrary } from "./ui/library";
+import { openStats } from "./ui/stats";
 import { openTyper } from "./ui/typer";
 
 const root = document.getElementById("app") as HTMLElement;
@@ -27,13 +28,17 @@ async function route(): Promise<void> {
 	cleanup = null;
 	const m = location.hash.match(/^#\/type\/(.+)$/);
 	try {
-		const done = m
+		const goLibrary = () => (location.hash = "#/");
+		const done = location.hash === "#/stats"
+			? await openStats(root, goLibrary)
+			: m
 			? await openTyper(root, decodeURIComponent(m[1]), { settings, saveSettings: persist, goLibrary: () => (location.hash = "#/") })
 			: await openLibrary(root, {
 					settings,
 					saveSettings: persist,
 					onSettingsChange: () => applyTheme(settings),
 					openBook: (id) => (location.hash = `#/type/${encodeURIComponent(id)}`),
+					openStats: () => (location.hash = "#/stats"),
 				});
 		if (seq === routeSeq) cleanup = done;
 		else done();

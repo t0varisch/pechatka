@@ -35,6 +35,7 @@ const PATHS: Record<string, string> = {
 	trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
 	book: '<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/>',
 	text: '<path d="M5 5h14M5 10h14M5 15h9M5 20h6"/>',
+	chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
 };
 
 export function icon(name: keyof typeof PATHS | string, size = 22): SVGSVGElement {

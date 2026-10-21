@@ -8,8 +8,10 @@ import {
 	remainingRequired,
 	TypingStats,
 } from "../core/typing";
+import { KeystrokeCollector } from "../core/keystats";
+import { layoutOf } from "../core/layouts";
 import type { Settings } from "../settings";
-import { type BookMeta, getBook, newId, updateBook } from "../store";
+import { addStats, type BookMeta, getBook, newId, saveSession, updateBook } from "../store";
 import { formatDuration, h, iconButton, openSheet, toast } from "./dom";
 import { openSettings } from "./settings-sheet";
 
@@ -63,7 +65,12 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 	let pos = nextRequired(text, Math.min(meta.position, len), opts);
 	let remaining = remainingRequired(text, pos, opts);
 	const session = new TypingStats();
+	const sessionStart = Date.now();
 	const base = { ...meta.stats };
+	// Раскладка для пробелов и знаков в начале — по первой букве рядом с курсором
+	let firstLetter: ReturnType<typeof layoutOf> = null;
+	for (let i = pos; i < Math.min(len, pos + 400) && !firstLetter; i++) firstLetter = layoutOf(text[i]);
+	const collector = new KeystrokeCollector(firstLetter ?? "ru");
 
 	// ---- разметка
 	const bar = h("div.progress-fill");
@@ -206,7 +213,9 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 		}
 		const expected = text[pos];
 		const now = performance.now();
-		if (matches(expected, ch, opts)) {
+		const ok = matches(expected, ch, opts);
+		collector.press(expected, ch, ok, now);
+		if (ok) {
 			session.hit(true, now);
 			const from = pos;
 			pos = nextRequired(text, pos + 1, opts);
@@ -331,6 +340,10 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 			activeMs: base.activeMs + session.activeMs,
 		};
 		updateBook(meta.id, { position: pos, stats: meta.stats, openedAt: Date.now() }).catch(() => {});
+		if (collector.dirty) addStats(collector.take()).catch(() => {});
+		if (session.correct >= 20) {
+			saveSession({ id: sessionStart, ms: session.activeMs, correct: session.correct, errors: session.errors, book: meta.title }).catch(() => {});
+		}
 	}
 
 	// ---- переходы, оглавление, закладки
@@ -474,6 +487,9 @@ export async function openTyper(root: HTMLElement, id: string, app: AppCtx): Pro
 
 	return () => {
 		save();
+		if (session.correct >= 100) {
+			toast(`Сессия: ${formatDuration(session.activeMs)}, ${session.cpm} зн/мин, точность ${session.accuracy.toFixed(1).replace(".", ",")}%`, 4000);
+		}
 		if (hintTimer) clearTimeout(hintTimer);
 		document.removeEventListener("keydown", onKey);
 		document.removeEventListener("visibilitychange", onHide);

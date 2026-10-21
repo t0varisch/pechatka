@@ -918,3 +918,303 @@ input[type="checkbox"][role="switch"]:checked::before {
 		font-size: 22px;
 	}
 }
+
+/* ---------- статистика ---------- */
+.head-actions {
+	display: flex;
+	gap: 2px;
+}
+.stats-page {
+	padding-bottom: 24px;
+}
+.tiles {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+	gap: 10px;
+}
+.tile {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 12px 14px;
+	border-radius: 14px;
+	background: var(--surface);
+}
+.tile small {
+	color: var(--muted);
+	font-size: 13px;
+}
+.tile b {
+	font-size: 22px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+.st-section {
+	margin-top: 26px;
+}
+.st-section h2 {
+	margin: 0 0 10px;
+	font-size: 18px;
+}
+.st-note {
+	margin: 0 0 10px;
+	color: var(--muted);
+	font-size: 14px;
+}
+.st-summary {
+	margin: 0;
+	padding-left: 20px;
+	line-height: 1.5;
+}
+.st-summary li + li {
+	margin-top: 6px;
+}
+.layout-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-top: 28px;
+	padding-top: 18px;
+	border-top: 1px solid var(--line);
+}
+.layout-head .st-note {
+	margin: 0;
+}
+.layout-switch {
+	flex: 1 1 260px;
+}
+.st-list {
+	display: grid;
+	gap: 6px;
+}
+.st-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1.4fr) minmax(40px, 1fr) auto;
+	align-items: center;
+	gap: 10px;
+	font-size: 15px;
+}
+.st-label {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+.st-label small {
+	color: var(--muted);
+	font-size: 12px;
+}
+.st-bar {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--surface);
+	overflow: hidden;
+}
+.st-bar i {
+	display: block;
+	height: 100%;
+	border-radius: 0 3px 3px 0;
+	background: var(--accent);
+}
+.st-value {
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	color: var(--fg);
+}
+
+.chart-box h3 {
+	margin: 14px 0 4px;
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--muted);
+}
+.chart {
+	width: 100%;
+	overflow: hidden;
+}
+.chart svg {
+	display: block;
+	touch-action: pan-y;
+}
+.chart .grid {
+	stroke: var(--line);
+	stroke-width: 1;
+}
+.chart .axis {
+	fill: var(--muted);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+}
+.chart .line {
+	fill: none;
+	stroke: var(--accent);
+	stroke-width: 2;
+	stroke-linejoin: round;
+	stroke-linecap: round;
+}
+.chart .dot {
+	fill: var(--accent);
+	stroke: var(--bg);
+	stroke-width: 2;
+}
+.chart .end-label {
+	fill: var(--fg);
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+}
+.chart .hit {
+	fill: transparent;
+}
+.chart .cross {
+	stroke: var(--muted);
+	stroke-width: 1;
+}
+.chart-tip {
+	min-height: 20px;
+	font-size: 13px;
+	color: var(--muted);
+	font-variant-numeric: tabular-nums;
+}
+.st-table summary {
+	margin-top: 12px;
+	cursor: pointer;
+	color: var(--muted);
+	font-size: 14px;
+}
+.st-table table {
+	width: 100%;
+	margin-top: 8px;
+	border-collapse: collapse;
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+}
+.st-table th,
+.st-table td {
+	padding: 6px 4px;
+	border-bottom: 1px solid var(--line);
+	text-align: right;
+}
+.st-table th:first-child,
+.st-table td:first-child {
+	text-align: left;
+}
+.st-table th {
+	color: var(--muted);
+	font-weight: 500;
+}
+
+/* Клавиатура: одна краска от фона к акценту, тёмный текст на насыщенных клавишах */
+.kb-box .segmented {
+	margin-bottom: 12px;
+}
+.kb {
+	--u: 18px;
+	display: grid;
+	gap: 4px;
+	user-select: none;
+}
+.kb-row {
+	display: flex;
+	gap: 4px;
+}
+.kb-row-space {
+	justify-content: center;
+	padding-left: calc(var(--u) * 0.6);
+}
+.kb-key {
+	flex: 0 0 var(--u);
+	height: calc(var(--u) * 1.05);
+	padding: 0;
+	border: 0;
+	border-radius: 6px;
+	font-size: clamp(10px, calc(var(--u) * 0.38), 16px);
+	color: var(--fg);
+}
+.kb-space {
+	flex-basis: calc(var(--u) * 6);
+	font-size: clamp(10px, calc(var(--u) * 0.32), 14px);
+}
+.kb-key.nodata,
+.kb-legend i.nodata {
+	background: var(--surface);
+	color: var(--muted);
+}
+.b0 {
+	background: color-mix(in oklab, var(--accent) 8%, var(--surface));
+}
+.b1 {
+	background: color-mix(in oklab, var(--accent) 22%, var(--surface));
+}
+.b2 {
+	background: color-mix(in oklab, var(--accent) 42%, var(--surface));
+}
+.b3 {
+	background: color-mix(in oklab, var(--accent) 68%, var(--surface));
+}
+.b4 {
+	background: var(--accent);
+}
+.kb-key.b3,
+.kb-key.b4 {
+	color: #17181c;
+}
+.kb-key:hover {
+	outline: 2px solid var(--fg);
+	outline-offset: 1px;
+}
+.kb-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 14px;
+	margin-top: 12px;
+	font-size: 12px;
+	color: var(--muted);
+}
+.kb-legend span {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+.kb-legend i {
+	display: inline-block;
+	width: 14px;
+	height: 14px;
+	border-radius: 4px;
+}
+.kb-detail {
+	min-height: 40px;
+	margin-top: 10px;
+	font-size: 14px;
+	line-height: 1.45;
+}
+.st-foot {
+	margin-top: 32px;
+	padding-top: 16px;
+	border-top: 1px solid var(--line);
+}
+.st-foot .secondary {
+	flex: none;
+}
+
+@media (max-width: 520px) {
+	/* Узкий экран: полоса под подписью, подписи не переносятся по слогам */
+	.st-row {
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas: "label value" "bar bar";
+		row-gap: 4px;
+	}
+	.st-label {
+		grid-area: label;
+	}
+	.st-value {
+		grid-area: value;
+	}
+	.st-bar {
+		grid-area: bar;
+	}
+	.st-list {
+		gap: 12px;
+	}
+}

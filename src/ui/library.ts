@@ -11,6 +11,7 @@ export interface LibraryCtx {
 	saveSettings(): void;
 	onSettingsChange(): void;
 	openBook(id: string): void;
+	openStats(): void;
 }
 
 /** Скорость для оценки времени, пока своей скорости по книге ещё нет, зн/мин. */
@@ -75,7 +76,12 @@ export async function openLibrary(root: HTMLElement, ctx: LibraryCtx): Promise<(
 			"header.lib-head",
 			{},
 			h("div", {}, h("h1", {}, "Печатка"), h("p.tagline", {}, "Читай книги, печатая их")),
-			iconButton("gear", "Настройки", () => openSettings(ctx.settings, () => (ctx.saveSettings(), ctx.onSettingsChange(), render()))),
+			h(
+				"div.head-actions",
+				{},
+				iconButton("chart", "Статистика", () => ctx.openStats()),
+				iconButton("gear", "Настройки", () => openSettings(ctx.settings, () => (ctx.saveSettings(), ctx.onSettingsChange(), render()))),
+			),
 		),
 		h(
 			"div.actions",
